@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Highlighter</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181c;
+    --border: #2e2e38;
+    --accent: #f5c542;
+    --accent2: #e8745a;
+    --text: #e8e8e0;
+    --muted: #6b6b7a;
+    --highlight: #f5c542;
+    --highlight-text: #0e0e10;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    color: var(--accent);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  h1 span { color: var(--accent2); }
+
+  .subtitle {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 900px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 640px) {
+    .app { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .panel-label {
+    padding: 10px 16px;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    padding: 16px;
+    resize: vertical;
+    min-height: 180px;
+  }
+
+  textarea::placeholder { color: var(--muted); }
+
+  /* Result spans the full width */
+  .result-panel {
+    grid-column: 1 / -1;
+  }
+
+  #output {
+    padding: 16px;
+    font-size: 0.875rem;
+    line-height: 1.9;
+    min-height: 120px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  #output.has-content {
+    color: var(--text);
+    font-style: normal;
+  }
+
+  mark {
+    background: var(--highlight);
+    color: var(--highlight-text);
+    border-radius: 2px;
+    padding: 0 2px;
+    font-weight: 500;
+  }
+
+  .stats {
+    padding: 8px 16px 12px;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    border-top: 1px solid var(--border);
+  }
+
+  .stats span { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Word <span>Highlighter</span></h1>
+  <p class="subtitle">Paste text · enter words · see matches</p>
+</header>
+
+<div class="app">
+  <div class="panel">
+    <div class="panel-label">Your text</div>
+    <textarea id="text-input" placeholder="Paste or type your text here..."></textarea>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Words to highlight (one per line or comma-separated)</div>
+    <textarea id="words-input" placeholder="word1&#10;word2&#10;word3"></textarea>
+  </div>
+
+  <div class="panel result-panel">
+    <div class="panel-label">Result</div>
+    <div id="output">Your highlighted text will appear here...</div>
+    <div class="stats" id="stats"></div>
+  </div>
+</div>
+
+<script>
+  const textInput = document.getElementById('text-input');
+  const wordsInput = document.getElementById('words-input');
+  const output = document.getElementById('output');
+  const stats = document.getElementById('stats');
+
+  function highlight() {
+    const text = textInput.value;
+    const raw = wordsInput.value;
+
+    if (!text.trim()) {
+      output.innerHTML = 'Your highlighted text will appear here...';
+      output.className = '';
+      stats.innerHTML = '';
+      return;
+    }
+
+    const words = raw
+      .split(/[\n,]+/)
+      .map(w => w.trim())
+      .filter(w => w.length > 0);
+
+    if (words.length === 0) {
+      output.textContent = text;
+      output.className = 'has-content';
+      stats.innerHTML = '';
+      return;
+    }
+
+    const escaped = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const pattern = new RegExp(`(${escaped.join('|')})`, 'gi');
+
+    let count = 0;
+    const result = text.replace(pattern, match => {
+      count++;
+      return `<mark>${match}</mark>`;
+    });
+
+    output.innerHTML = result;
+    output.className = 'has-content';
+    stats.innerHTML = `<span>${count}</span> match${count !== 1 ? 'es' : ''} found for <span>${words.length}</span> word${words.length !== 1 ? 's' : ''}`;
+  }
+
+  textInput.addEventListener('input', highlight);
+  wordsInput.addEventListener('input', highlight);
+</script>
+</body>
+</html>
